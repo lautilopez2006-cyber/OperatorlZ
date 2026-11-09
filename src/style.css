@@ -175,6 +175,9 @@ hr.rule{border:0;height:1px;background:linear-gradient(90deg,transparent,var(--l
 .wr .ds{font-size:.84rem;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wr .meta{display:flex;gap:6px;align-items:center}
 .wr.ix{opacity:.82}
+.wr{content-visibility:auto;contain-intrinsic-size:auto 64px}
+.page{content-visibility:auto;contain-intrinsic-size:auto 900px}
+.cond,.pc{contain:content}
 
 /* Panel lateral de fichas */
 .drawer-bg{position:fixed;inset:0;background:rgba(4,3,8,.5);z-index:70;animation:fadein .25s}
