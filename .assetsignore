@@ -1,0 +1,7 @@
+# Archivos del proyecto que no forman parte de la app publicada
+.git
+.gitignore
+.assetsignore
+README.md
+build.sh
+src
