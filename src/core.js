@@ -140,11 +140,13 @@ const Store={
 /* Contenido de manuales: activos en la nube + caché IndexedDB local */
 const IDB={
  db:null,
- open(){ if(this.db) return Promise.resolve(this.db); return new Promise((res,rej)=>{ try{ const r=indexedDB.open('operatorlz',1);
-  r.onupgradeneeded=()=>r.result.createObjectStore('manuals'); r.onsuccess=()=>{this.db=r.result;res(this.db)}; r.onerror=()=>rej(r.error);}catch(e){rej(e)} }); },
- async get(k){ try{ const db=await this.open(); return await new Promise(r=>{const q=db.transaction('manuals').objectStore('manuals').get(k);q.onsuccess=()=>r(q.result);q.onerror=()=>r(null)}); }catch(e){return null} },
- async set(k,v){ try{ const db=await this.open(); await new Promise(r=>{const t=db.transaction('manuals','readwrite');t.objectStore('manuals').put(v,k);t.oncomplete=r;t.onerror=r}); }catch(e){} },
- async del(k){ try{ const db=await this.open(); db.transaction('manuals','readwrite').objectStore('manuals').delete(k);}catch(e){} }
+ open(){ if(this.db) return Promise.resolve(this.db); return new Promise((res,rej)=>{ try{ const r=indexedDB.open('operatorlz',2);
+  r.onupgradeneeded=()=>{ for(const st of ['manuals','pdfs','trans']) if(!r.result.objectStoreNames.contains(st)) r.result.createObjectStore(st); };
+  r.onsuccess=()=>{this.db=r.result;res(this.db)}; r.onerror=()=>rej(r.error);}catch(e){rej(e)} }); },
+ async get(k,st='manuals'){ try{ const db=await this.open(); return await new Promise(r=>{const q=db.transaction(st).objectStore(st).get(k);q.onsuccess=()=>r(q.result);q.onerror=()=>r(null)}); }catch(e){return null} },
+ async set(k,v,st='manuals'){ try{ const db=await this.open(); await new Promise((r,j)=>{const t=db.transaction(st,'readwrite');t.objectStore(st).put(v,k);t.oncomplete=r;t.onerror=()=>j(t.error);t.onabort=()=>j(t.error)}); return true; }catch(e){ return false; } },
+ async del(k,st='manuals'){ try{ const db=await this.open(); db.transaction(st,'readwrite').objectStore(st).delete(k);}catch(e){} },
+ async delPrefix(p,st){ try{ const db=await this.open(); db.transaction(st,'readwrite').objectStore(st).delete(IDBKeyRange.bound(p,p+'\uffff')); }catch(e){} }
 };
 const manualCache=new Map();
 async function manualContent(m){

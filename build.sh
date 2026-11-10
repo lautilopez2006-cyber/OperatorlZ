@@ -9,5 +9,5 @@ echo '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="prec
 echo '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=Marcellus+SC&display=swap">'
 echo '<style>'; python3 -c "import re,sys;s=open('src/style.css').read();s=re.sub(r'/\\*.*?\\*/','',s,flags=re.S);s=re.sub(r'\\s*\\n\\s*','',s);print(s)"; echo '</style></head><body>'
 echo '<div id="root"></div>'
-echo '<script>'; cat src/data.js src/spells.js src/catalog.js src/core.js src/shell.js src/keep.js src/views2.js src/maps.js src/init.js; echo '</script></body></html>'
+echo '<script>'; cat src/data.js src/spells.js src/catalog.js src/core.js src/shell.js src/keep.js src/views2.js src/manuals.js src/maps.js src/init.js; echo '</script></body></html>'
 } > index.html
