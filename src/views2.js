@@ -96,7 +96,7 @@ function vClases(v){
  const all=[...c.feats.map(f=>[...f,false]),...c.sub.feats.map(f=>[...f,true])].sort((a,b)=>a[0]-b[0]);
  const slotT=c.caster==='full'?SLOTS_FULL:c.caster==='half'?SLOTS_HALF:c.caster==='pact'?SLOTS_PACT:null;
  v.innerHTML=`<div class="row" style="margin-bottom:14px"><button class="btn ghost" id="clback">${I.back} Todas las clases</button><div style="flex:1"></div>${CLASSES.map(k=>`<span class="chip ${k.id===c.id?'on':''}" data-c="${k.id}">${k.name}</span>`).join('')}</div>
- <div class="cols2" style="grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)">
+ <div class="cols2 cls2">
   <div>
    <div class="panel" style="margin-bottom:14px;position:relative;overflow:hidden"><span class="sig" aria-hidden="true" style="position:absolute;right:10px;top:-20px;font:400 9rem/1 var(--f-disp);color:var(--acc);opacity:.1">${c.name[0]}</span>
     <span class="eyebrow">${esc(c.en)}</span><h2 class="h2" style="font-size:2.3rem">${esc(c.name)}</h2><p class="muted" style="margin:4px 0 10px">${esc(c.blurb)}</p>

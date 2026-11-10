@@ -147,7 +147,7 @@ function vBiblioteca(v){
  const m=LB.open&&Store.get('manuals',LB.open); if(m) return vReader(v,m);
  const l=Store.list('manuals').sort((a,b)=>b.added-a.added);
  v.innerHTML=`<div class="wrap"><div style="--i:0"><span class="eyebrow">Wiki</span><h2 class="h1">Manuales</h2><p class="muted" style="margin:6px 0 0;max-width:70ch">Sube tus PDF y se ven tal cual son, con sus ilustraciones. Además se indexa el texto para buscar, los escaneados se reconocen con OCR automático y los que están en inglés se pueden leer traducidos.</p></div>
- <div class="cols2" style="--i:1;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)">
+ <div class="cols2 lib2" style="--i:1">
   <div class="drop" id="drop" tabindex="0" role="button" aria-label="Subir manuales">${I.upload}<div class="h3">Subir manuales</div><div class="muted" style="font-size:.9rem">Arrastra PDF, TXT, MD o HTML, o haz clic para elegirlos. Mejor de a 5 o 10 por vez.</div><input type="file" id="fin" accept=".pdf,.txt,.md,.markdown,.html,.htm" multiple hidden><div id="pg" hidden><div class="prog"><i id="pgb"></i></div><small class="muted" id="pgt"></small></div></div>
   <div class="panel"><h3 class="h3" style="margin-bottom:8px">Buscar en todos los manuales</h3><div class="search" style="max-width:none">${I.search}<input class="inp" id="lq" placeholder="Ej.: agarre, bola de fuego, cobertura…" value="${esc(LB.q)}" aria-label="Buscar en manuales"></div><div id="lres" style="display:flex;flex-direction:column;gap:8px;margin-top:10px;max-height:420px;overflow:auto"></div></div>
  </div>
