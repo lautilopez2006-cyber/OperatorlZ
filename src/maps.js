@@ -17,7 +17,7 @@ const MARK={
 };
 const REGION_COLORS=['#f0c75a','#e8695a','#6ac3e6','#9ee06c','#c78cf0','#f39c4c','#5ad8b6','#f07cbc','#b8b8cc','#7d8ff2'];
 const MS={open:null,level:'global',tool:'pincel',brush:1,ter:{global:'p',nacional:'f',minimo:'s'},reg:0,mk:{global:'ciudad',nacional:'pueblo',minimo:'taberna'},grid:true,showReg:true};
-const C=32;
+const C=48;
 const colName=i=>{ let s=''; i++; while(i>0){ const r=(i-1)%26; s=String.fromCharCode(65+r)+s; i=Math.floor((i-1)/26);} return s; };
 const hashXY=(x,y,s=7)=>{ let h=(Math.imul(x,374761393)+Math.imul(y,668265263)+Math.imul(s,1442695041))|0; h=Math.imul(h^(h>>>13),1274126177); h^=h>>>16; return h>>>0; };
 const vnoise=(x,y,s)=>{ const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi,u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf); const a=hashXY(xi,yi,s)/4294967295,b=hashXY(xi+1,yi,s)/4294967295,c=hashXY(xi,yi+1,s)/4294967295,d=hashXY(xi+1,yi+1,s)/4294967295; return a+(b-a)*u+(c-a)*v+(a-b-c+d)*u*v; };
@@ -108,12 +108,12 @@ function drawScene(ctx,W,H,view,opt={}){
  const {x:vx,y:vy,z}=view, cs=C*z, MW=m.w*C, MH=m.h*C;
  ctx.save(); ctx.translate(vx,vy); ctx.scale(z,z);
  if(!opt.export){ ctx.shadowColor='rgba(0,0,0,.55)'; ctx.shadowBlur=40/z; ctx.fillStyle='#000'; ctx.fillRect(0,0,MW,MH); ctx.shadowBlur=0; }
- ctx.imageSmoothingEnabled=z<1; ctx.drawImage(Ed.terrC,0,0);
+ ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high'; ctx.drawImage(Ed.terrC,0,0,MW,MH);
  const tint=planeById(m.plane||'material').tint;
  if(tint){ ctx.globalCompositeOperation=tint[1]; ctx.globalAlpha=tint[2]; ctx.fillStyle=tint[0]; ctx.fillRect(0,0,MW,MH); ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=1; }
  if(MS.showReg) ctx.drawImage(Ed.regC,0,0);
  if(MS.grid&&cs>=7){ const x0=Math.max(0,Math.floor(-vx/cs)), x1=Math.min(m.w,Math.ceil((W-vx)/cs)), y0=Math.max(0,Math.floor(-vy/cs)), y1=Math.min(m.h,Math.ceil((H-vy)/cs));
-  ctx.strokeStyle=`rgba(0,0,0,${cs<14?.12:.24})`; ctx.lineWidth=1/z; ctx.beginPath();
+  ctx.strokeStyle=`rgba(0,0,0,${(m.level==='global'||m.level==='nacional')?(cs<14?.06:.12):(cs<14?.12:.26)})`; ctx.lineWidth=1/z; ctx.beginPath();
   for(let i=x0;i<=x1;i++){ ctx.moveTo(i*C,y0*C); ctx.lineTo(i*C,y1*C); } for(let j=y0;j<=y1;j++){ ctx.moveTo(x0*C,j*C); ctx.lineTo(x1*C,j*C); } ctx.stroke(); }
  ctx.strokeStyle=acc; ctx.lineWidth=2/z; ctx.strokeRect(0,0,MW,MH);
  ctx.restore();
@@ -295,11 +295,11 @@ function resizeMap(w,h){ const m=Ed.map; pushUndo(); const base=LEVELS[m.level].
  m.w=w; m.h=h; m.t=t; m.r=r; m.labels=(m.labels||[]).filter(l=>l.x<w&&l.y<h); m.markers=(m.markers||[]).filter(k=>k.x<w&&k.y<h);
  rebuildTerrain(); rebuildRegions(); saveMap(); fitView(); sideRender(); }
 function newMapDialog(parent,fromMarker){
- const lv=parent?LEVELS[parent.level].child:MS.level, L=LEVELS[lv];
+ const lv=parent?childFor(parent.level,fromMarker&&fromMarker.kind):MS.level, L=LEVELS[lv];
  const md=modal({title:'Nuevo mapa '+L.name.toLowerCase(),body:`<p class="muted" style="margin:0">${L.desc}. Se crea en ${esc(planeById(curPlane).name)}.</p>
-  <div class="grid2">${fld('Nombre','name',fromMarker?.name||(lv==='global'?'Mundo conocido':lv==='nacional'?'Nueva región':'Nuevo pueblo'))}${sel('Nivel','level',lv,Object.entries(LEVELS).map(([k,l])=>[k,l.name]))}</div>
+  <div class="grid2">${fld('Nombre','name',fromMarker?.name||(lv==='global'?'Mundo conocido':lv==='nacional'?'Nueva región':lv==='mazmorra'?'Nueva mazmorra':'Nuevo pueblo'))}${sel('Nivel','level',lv,Object.entries(LEVELS).map(([k,l])=>[k,l.name]))}</div>
   <div class="grid3">${fld('Ancho (casillas)','w',L.w,'number','min="8" max="120"')}${fld('Alto (casillas)','h',L.h,'number','min="8" max="120"')}${fld(`Escala (${L.unit} por casilla)`,'scale',L.scale,'number','step="0.1" min="0.1"')}</div>
-  <label class="chip" style="cursor:pointer;width:max-content"><input type="checkbox" name="gen" ${lv!=='minimo'?'checked':''}> Generar terreno procedural para empezar</label>`,
+  <label class="chip" style="cursor:pointer;width:max-content"><input type="checkbox" name="gen" checked> ${lv==='mazmorra'?'Generar salas y pasillos para empezar':lv==='minimo'?'Generar un pueblo para empezar':'Generar terreno procedural para empezar'}</label>`,
   foot:`<button class="btn" data-c>Cancelar</button><button class="btn pri" data-s>${I.plus} Crear</button>`});
  $('[data-c]',md.el).onclick=md.close;
  $('[data-s]',md.el).onclick=()=>{ const f=vals(md.el); const level=f.level; const w=clamp(f.w||LEVELS[level].w,8,120), h=clamp(f.h||LEVELS[level].h,8,120);
@@ -311,7 +311,7 @@ let popEl=null;
 function closePop(){ if(popEl){ popEl.remove(); popEl=null; } }
 function placePop(el,p){ const st=$('#stage'); st.append(el); const W=st.clientWidth,H=st.clientHeight; el.style.left=clamp(p.x+16,8,W-el.offsetWidth-8)+'px'; el.style.top=clamp(p.y-20,8,H-el.offsetHeight-8)+'px'; popEl=el; }
 function markerPop(k,p,isNew){
- closePop(); const m=Ed.map, child=LEVELS[m.level].child; const linked=k.link&&Store.get('maps',k.link);
+ closePop(); const m=Ed.map, child=childFor(m.level,k.kind); const linked=k.link&&Store.get('maps',k.link);
  const el=document.createElement('div'); el.className='pop';
  el.innerHTML=`<input class="inp" id="kn" placeholder="Nombre del lugar" value="${esc(k.name)}" aria-label="Nombre del lugar"><select class="sel" id="kk" aria-label="Tipo">${MARK[m.level].map(([v,t])=>`<option value="${v}" ${v===k.kind?'selected':''}>${t}</option>`).join('')}</select>
   <textarea class="inp" id="knote" rows="3" placeholder="Notas: quién vive aquí, qué esconde…" aria-label="Notas">${esc(k.note||'')}</textarea>
