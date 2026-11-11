@@ -140,8 +140,8 @@ const Store={
 /* Contenido de manuales: activos en la nube + caché IndexedDB local */
 const IDB={
  db:null,
- open(){ if(this.db) return Promise.resolve(this.db); return new Promise((res,rej)=>{ try{ const r=indexedDB.open('operatorlz',2);
-  r.onupgradeneeded=()=>{ for(const st of ['manuals','pdfs','trans']) if(!r.result.objectStoreNames.contains(st)) r.result.createObjectStore(st); };
+ open(){ if(this.db) return Promise.resolve(this.db); return new Promise((res,rej)=>{ try{ const r=indexedDB.open('operatorlz',3);
+  r.onupgradeneeded=()=>{ for(const st of ['manuals','pdfs','trans','wiki']) if(!r.result.objectStoreNames.contains(st)) r.result.createObjectStore(st); };
   r.onsuccess=()=>{this.db=r.result;res(this.db)}; r.onerror=()=>rej(r.error);}catch(e){rej(e)} }); },
  async get(k,st='manuals'){ try{ const db=await this.open(); return await new Promise(r=>{const q=db.transaction(st).objectStore(st).get(k);q.onsuccess=()=>r(q.result);q.onerror=()=>r(null)}); }catch(e){return null} },
  async set(k,v,st='manuals'){ try{ const db=await this.open(); await new Promise((r,j)=>{const t=db.transaction(st,'readwrite');t.objectStore(st).put(v,k);t.oncomplete=r;t.onerror=()=>j(t.error);t.onabort=()=>j(t.error)}); return true; }catch(e){ return false; } },

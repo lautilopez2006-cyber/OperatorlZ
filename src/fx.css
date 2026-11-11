@@ -191,3 +191,9 @@
 
 @media (min-width:901px){ .mapwrap{grid-template-rows:minmax(0,1fr)} }
 .view.full{flex:none!important;min-height:0!important;max-height:calc(100dvh - var(--toph,66px))}.mapwrap,.mapside,.mapstage{min-height:0}
+/* Wiki: importación desde manuales */
+.wimp{border-color:color-mix(in srgb,var(--acc) 35%,transparent);background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 9%,transparent),transparent 60%)}
+.wstat{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.wstat span{display:flex;align-items:baseline;gap:6px;padding:6px 12px;border-radius:999px;background:color-mix(in srgb,var(--ink,#fff) 6%,transparent);font-size:.82rem;color:var(--mut,#aaa)}
+.wstat b{font-family:'IBM Plex Mono',monospace;font-size:1rem;color:var(--acc2,var(--acc))}
+.wr .meta .tag{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
