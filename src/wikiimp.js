@@ -3,13 +3,13 @@
    bloques de estadísticas, hechizos, objetos mágicos, especies y subclases. */
 I.gem=ic('<path d="M6 3h12l4 6-10 12L2 9z"/><path d="M2 9h20M12 21 8 9l4-6 4 6z"/>');
 KINDS.item='Objeto'; KINDS.sec='Sección';
-const WIKI={mon:[],spl:[],itm:[],sec:[],ready:false,
- async load(){ const d=await IDB.get('all','wiki'); if(d){ this.mon=d.mon||[]; this.spl=d.spl||[]; this.itm=d.itm||[]; this.sec=d.sec||[]; } this.ready=true; this.reindex(); },
- save(){ this.reindex(); return IDB.set('all',{mon:this.mon,spl:this.spl,itm:this.itm,sec:this.sec},'wiki'); },
- reindex(){ const ens=l=>new Set(l.map(x=>norm(x.en||x.name))); this.monEn=ens(this.mon); this.splEn=ens(this.spl); this.itmEn=ens(this.itm);
+const WIKI={mon:[],spl:[],itm:[],sec:[],feat:[],ready:false,
+ async load(){ const d=await IDB.get('all','wiki'); if(d){ this.mon=d.mon||[]; this.spl=d.spl||[]; this.itm=d.itm||[]; this.sec=d.sec||[]; this.feat=d.feat||[]; } this.ready=true; this.reindex(); },
+ save(){ this.reindex(); return IDB.set('all',{mon:this.mon,spl:this.spl,itm:this.itm,sec:this.sec,feat:this.feat},'wiki'); },
+ reindex(){ const ens=l=>new Set(l.map(x=>norm(x.en||x.name))); this.monEn=ens(this.mon); this.splEn=ens(this.spl); this.itmEn=ens(this.itm); this.featEn=ens(this.feat);
   this.secBy={}; for(const s of this.sec){ (this.secBy[s.kind+':'+norm(s.match||s.name)]=this.secBy[s.kind+':'+norm(s.match||s.name)]||[]).push(s); } },
- count(){ return this.mon.length+this.spl.length+this.itm.length+this.sec.length; },
- drop(manId){ for(const k of ['mon','spl','itm','sec']) this[k]=this[k].filter(x=>x.man!==manId); }
+ count(){ return this.mon.length+this.spl.length+this.itm.length+this.sec.length+this.feat.length; },
+ drop(manId){ for(const k of ['mon','spl','itm','sec','feat']) this[k]=this[k].filter(x=>x.man!==manId); }
 };
 
 /* Fuente probable según el título del manual */
@@ -183,6 +183,23 @@ function parseItems(fl,src){
  return out;
 }
 
+/* ---------- Dotes ---------- */
+const FEAT_RE=/^(Origin Feat|General Feat|Fighting Style Feat|Epic Boon Feat|Dote de origen|Dote general|Dote de estilo de combate|Dote de don épico|Don épico)\b\s*(?:\(([^)]*)\))?/i;
+const PRE_RE=/^(Prerequisite|Requisito|Prerrequisito)s?\s*:\s*/i;
+function parseFeats(fl,src){
+ const out=[];
+ fl.forEach((x,i)=>{ if(i===0) return; const prev=fl[i-1]; if(!titleish(prev.s)||prev.s.length>40) return;
+  let cat=null, pre='', rest='';
+  const m=x.s.match(FEAT_RE);
+  if(m){ const k=norm(m[1]); cat=/origin|origen/.test(k)?'origen':/style|estilo/.test(k)?'estilo':/epic|epico/.test(k)?'epico':'general'; pre=(m[2]||'').replace(PRE_RE,''); rest=x.s.slice(m[0].length); }
+  else if(PRE_RE.test(x.s)&&prev.t==='h'){ cat='general'; const t=x.s.replace(PRE_RE,''); const c=t.match(/^[^.]{1,120}?(?:or higher|o superior|or more|o más|\+)?(?=\s+[\p{Lu}])/u)||t.match(/^[^.]{1,120}\./); pre=c?c[0].trim():''; rest=t.slice(pre.length); }
+  else return;
+  const body=[rest]; for(let j=i+1;j<Math.min(fl.length,i+10);j++){ if(fl[j].t==='h'&&j+1<fl.length&&(FEAT_RE.test(fl[j+1].s)||PRE_RE.test(fl[j+1].s))) break; if(fl[j].t==='h'&&!/^(Repeatable|Repetible)/i.test(fl[j].s)&&body.join(' ').length>200) break; if(FEAT_RE.test(fl[j].s)) break; body.push(fl[j].s); }
+  const desc=clean(body.join('\n')).replace(/^[\s.:]+/,''); if(desc.length<25) return;
+  out.push({id:'',name:prev.s,en:prev.s,cat,pre:clean(pre),desc:desc.slice(0,5000),source:src,full:true,_imp:{p:prev.p}}); });
+ return out;
+}
+
 /* ---------- Especies, subclases y clases ---------- */
 const SUB_PFX=/^(Path of (the )?|College of |Circle of (the )?|Oath of (the )?|Way of (the )?|School of |Order of (the )?|The [\p{L} ]+ Patron$|Senda del? |Colegio de(l| la)? |Círculo de(l| la)? |Juramento de(l| la)? |Camino de(l| la)? |Escuela de |Dominio de(l| la)? |Patr[oó]n )|( Domain| Conclave| Archetype| Bloodline| Patron| Sorcery| Subclass)$/u;
 function subGuess(n){ const G=[[/^(path of|senda)/,'barbaro'],[/^(college of|colegio)/,'bardo'],[/(domain$|^dominio)/,'clerigo'],[/^(circle of|circulo)/,'druida'],[/^(oath of|juramento)/,'paladin'],[/^(way of|camino)/,'monje'],[/(conclave$|^cónclave)/,'explorador'],[/(bloodline$|sorcery$|^linaje)/,'hechicero'],[/(patron$|^patron|^the .+ patron)/,'brujo'],[/^(school of|escuela)/,'mago']];
@@ -191,11 +208,17 @@ function parseSections(fl,src){
  const out=[]; const sp=new Map(); for(const x of allSpecies()) { sp.set(norm(x.en),x); sp.set(norm(x.name),x); }
  const cls=new Map(); for(const c of [...CLASSES,...EXTRA_CLASSES]){ cls.set(norm(c.name),c); if(c.en) cls.set(norm(c.en),c); }
  const subs=new Map(); for(const [cid,str] of Object.entries(SUBCLASS_CAT)) for(const s of str.split(';')){ const [n]=s.split('|'); subs.set(norm(n),cid); }
- const take=(i,max,stopRe)=>{ const b=[]; let n=0; for(let j=i+1;j<fl.length&&b.length<max&&n<14000;j++){ const x=fl[j]; if(x.t==='h'&&stopRe&&stopRe(x.s)) break; b.push([x.t,x.s]); n+=x.s.length; } return b; };
+ const nextIs=(j,re)=>j+1<fl.length&&re.test(fl[j+1].s);
+ const ENTRY_START=/^(Creature Type|Tipo de criatura|Ability Scores|Puntuaciones de característica|Casting Time|Tiempo de lanzamiento|Prerequisite|Requisito)\s*:|^(Origin|General|Fighting Style|Epic Boon) Feat|^Dote (de origen|general|de estilo|de don)|^(Level \d|\d(st|nd|rd|th)-level|Nivel \d)/i;
+ const isEntry=j=>nextIs(j,ENTRY_START)||nextIs(j,IT_RE)||(j+1<fl.length&&!!matchType(fl[j+1].s.slice(0,120)));
+ const take=(i,max,stopRe)=>{ const b=[]; let n=0; for(let j=i+1;j<fl.length&&b.length<max&&n<14000;j++){ const x=fl[j]; if(x.t==='h'&&((stopRe&&stopRe(x.s))||isEntry(j))) break; b.push([x.t,x.s]); n+=x.s.length; } return b; };
  const isMajor=s=>sp.has(norm(s))||cls.has(norm(s))||SUB_PFX.test(s)||subs.has(norm(s.replace(SUB_PFX,'')));
  fl.forEach((x,i)=>{ if(x.t!=='h'||x.s.length>60) return; const n=norm(x.s);
-  const nx=fl.slice(i+1,i+6).map(y=>y.s).join(' ');
-  if(sp.has(n)&&/(Creature Type|Tipo de criatura|Size|Tamaño|Speed|Velocidad)\s*[:.]/.test(nx)){ const e=sp.get(n); out.push({kind:'species',name:e.name,en:e.en,match:e.en,blocks:take(i,30,isMajor),source:src,p:x.p}); return; }
+  let nx=''; for(let j=i+1;j<Math.min(fl.length,i+5);j++){ if(fl[j].t==='h') break; nx+=' '+fl[j].s; }
+  const n1=(fl[i+1]||{}).s||'';
+  if(/^(Creature Type|Tipo de criatura|Size|Tamaño)\s*[:.]/.test(n1)&&/(Creature Type|Tipo de criatura)\s*[:.]/.test(nx)&&/(Size|Tamaño)\s*[:.]/.test(nx)){ const e=sp.get(n); out.push({kind:'species',name:e?e.name:x.s,en:e?e.en:x.s,match:e?e.en:x.s,blocks:take(i,30,isMajor),source:src,p:x.p}); return; }
+  if(sp.has(n)&&/(Size|Tamaño|Speed|Velocidad)\s*[:.]/.test(nx)){ const e=sp.get(n); out.push({kind:'species',name:e.name,en:e.en,match:e.en,blocks:take(i,30,isMajor),source:src,p:x.p}); return; }
+  if(/^(Ability Scores|Puntuaciones de característica|Características)\s*:/.test(n1)&&/(Skill Proficiencies|Competencias en habilidades)\s*:/.test(nx)){ out.push({kind:'background',name:x.s,match:x.s,blocks:take(i,8),source:src,p:x.p}); return; }
   if(cls.has(n)&&/(Hit Point Die|Hit Dice|Dado de golpe|Dados de golpe|Primary Ability|Característica principal)/.test(fl.slice(i+1,i+14).map(y=>y.s).join(' '))){ const c=cls.get(n); out.push({kind:'class',name:c.name,cls:c.id,match:c.id,blocks:take(i,90,s=>cls.has(norm(s))),source:src,p:x.p}); return; }
   const bare=n.replace(/^(senda|colegio|circulo|juramento|camino|escuela|dominio|patron|path|college|circle|oath|way|school|order)( of| de)?( the| la| los| las| el)?( del?)? /,'');
   const sc=subs.get(n)||subs.get(bare)||subGuess(n);
@@ -209,7 +232,7 @@ function parseSections(fl,src){
 async function wikiImport(m,silent){
  const content=await manualContent(m); if(!content) return null;
  const fl=flatten(content), src=guessBook(m.title);
- const mon=parseMonsters(fl,src), spl=parseSpells(fl,src), itm=parseItems(fl,src), sec=parseSections(fl,src);
+ const mon=parseMonsters(fl,src), spl=parseSpells(fl,src), itm=parseItems(fl,src), sec=parseSections(fl,src), fea=parseFeats(fl,src);
  const sp=new Map(allSpells().filter(x=>!x._imp).map(x=>[norm(x.en||''),x])), mc=new Map([...SRD_MONSTERS,...MONSTER_CAT].map(x=>[norm(x.en||''),x])), ic=new Map(ITEMS.map(x=>[norm(x.en),x]));
  const seen=new Set();
  const fix=(arr,pfx,cat)=>arr.filter(x=>{ const k=norm(x.en); if(!k||seen.has(pfx+k)) return false; seen.add(pfx+k);
@@ -217,23 +240,24 @@ async function wikiImport(m,silent){
   else if(m.lang!=='es') x.name=x.en;
   x.id=`imp-${pfx}-${slug(m.id)}-${slug(x.en)}`; x.man=m.id; x._imp.man=m.id; x._imp.title=m.title; return true; });
  WIKI.drop(m.id);
- WIKI.mon.push(...fix(mon,'m',mc)); WIKI.spl.push(...fix(spl,'s',sp)); WIKI.itm.push(...fix(itm,'i',ic));
+ const fc=new Map(FEATS.map(x=>[norm(x.en||x.name),x])); WIKI.feat.push(...fix(fea,'f',fc)); WIKI.mon.push(...fix(mon,'m',mc)); WIKI.spl.push(...fix(spl,'s',sp)); WIKI.itm.push(...fix(itm,'i',ic));
  sec.forEach((s,i)=>{ s.id=`imp-x-${slug(m.id)}-${i}`; s.man=m.id; s.title=m.title; }); WIKI.sec.push(...sec);
  await WIKI.save();
- const r={mon:WIKI.mon.filter(x=>x.man===m.id).length,spl:WIKI.spl.filter(x=>x.man===m.id).length,itm:WIKI.itm.filter(x=>x.man===m.id).length,sec:sec.length};
+ const r={feat:WIKI.feat.filter(x=>x.man===m.id).length,mon:WIKI.mon.filter(x=>x.man===m.id).length,spl:WIKI.spl.filter(x=>x.man===m.id).length,itm:WIKI.itm.filter(x=>x.man===m.id).length,sec:sec.length};
  m.wiki=Object.assign(r,{at:Date.now()}); Store.put('manuals',m);
- if(!silent) toast(`${m.title}: ${r.mon} monstruos, ${r.spl} hechizos, ${r.itm} objetos y ${r.sec} secciones añadidos a la wiki.`);
+ if(!silent) toast(`${m.title}: ${r.mon} monstruos, ${r.spl} hechizos, ${r.itm} objetos, ${r.feat} dotes y ${r.sec} secciones añadidos a la wiki.`);
  return r;
 }
 async function wikiImportAll(ui){
- const l=Store.list('manuals'); const tot={mon:0,spl:0,itm:0,sec:0};
+ const l=Store.list('manuals'); const tot={feat:0,mon:0,spl:0,itm:0,sec:0};
  for(let i=0;i<l.length;i++){ ui&&ui(i/l.length,`Analizando ${l[i].title}…`); await new Promise(r=>setTimeout(r,30)); try{ const r=await wikiImport(l[i],true); if(r) for(const k in tot) tot[k]+=r[k]; }catch(e){ console.error(e); } }
- ui&&ui(null); toast(`Wiki actualizada: ${tot.mon} monstruos, ${tot.spl} hechizos, ${tot.itm} objetos y ${tot.sec} secciones de clases, subclases y especies.`); return tot;
+ ui&&ui(null); toast(`Wiki actualizada: ${tot.mon} monstruos, ${tot.spl} hechizos, ${tot.itm} objetos, ${tot.feat} dotes y ${tot.sec} secciones de clases, subclases, especies y trasfondos.`); return tot;
 }
 
 /* ---------- Integración con la wiki ---------- */
 allMonsterEntries=function(){ return [...allMonsters(),...WIKI.mon,...MONSTER_CAT.filter(x=>!WIKI.monEn||!WIKI.monEn.has(norm(x.en)))]; };
 allSpells=function(){ return [...SPELLS,...WIKI.spl.filter(x=>!SPELLS.some(s=>norm(s.en)===norm(x.en))),...SPELL_CAT.filter(x=>!WIKI.splEn||!WIKI.splEn.has(norm(x.en)))]; };
+allFeats=function(){ return [...FEATS.filter(f=>!WIKI.featEn||!WIKI.featEn.has(norm(f.en||f.name))||f.source!=='SRD'),...WIKI.feat,...Store.list('feats')]; };
 function allItems(){ return [...ITEMS,...WIKI.itm]; }
 const _findEntry=findEntry;
 findEntry=function(k,id){
@@ -245,13 +269,15 @@ const _statblock=statblock;
 statblock=function(m,c){ let h=_statblock(m,c); if(m._imp) h=h.replace('<span class="tag hb">Homebrew</span>',`<span class="tag" title="${esc(bookName(m.source))}">${esc(m.source)}</span>`); if(m._imp&&m.init) h=h.replace('<div class="abil">',`<div class="kv"><span><b>Iniciativa</b> ${esc(m.init)}</span></div><div class="abil">`); return h; };
 const pageBtn=x=>x&&x._imp||x&&x.p!=null?`<button class="btn" data-page="${esc((x._imp||x).man||x.man)}:${(x._imp||x).p}">${I.book} Ver en el manual (pág. ${((x._imp||x).p)+1})</button>`:'';
 const trBtn=()=>`<button class="btn" data-trn>${I.globe||I.book} Traducir al español</button>`;
+const SEC_KIND={species:'Especie',subclass:'Subclase',class:'Clase',background:'Trasfondo'};
 const secHTML=s=>s.blocks.map(([t,x])=>t==='h'?`<h4>${esc(x)}</h4>`:`<p>${rollify(esc(x))}</p>`).join('');
 const _entryHTMLFor=entryHTMLFor;
 entryHTMLFor=function(k,x){
  if(k==='item') return `<div class="sb"><h2>${esc(x.name)}</h2><div class="ty">${esc(x.type)} · ${esc((x.rarity||'').toLowerCase())}${x.en&&x.en!==x.name?` · <span class="muted">${esc(x.en)}</span>`:''}</div>${x.att?`<p class="muted"><i>${esc(x.att)}</i></p>`:''}<div class="trx"><p style="font-size:1.04rem;white-space:pre-line">${rollify(esc(x.desc))}</p></div><div class="row" style="margin-top:14px;gap:8px">${srcTag(x)}<small class="muted">${esc(bookName(x.source))}</small></div></div><div class="acts" style="margin-top:14px">${pageBtn(x)}${x._imp?trBtn():manualBtn(x.name)}</div>`;
- if(k==='sec') return `<div class="sb"><h2>${esc(x.name)}</h2><div class="ty">${{species:'Especie',subclass:'Subclase',class:'Clase'}[x.kind]}${x.cls?' · '+esc(([...CLASSES,...EXTRA_CLASSES].find(c=>c.id===x.cls)||{}).name||''):''} · <span class="muted">${esc(x.title)}</span></div><div class="trx">${secHTML(x)}</div></div><div class="acts" style="margin-top:14px">${pageBtn(x)}${trBtn()}</div>`;
- if(k==='species'&&x.full===false){ const s=(WIKI.secBy['species:'+norm(x.en)]||[])[0]; if(s) return `<div class="sb"><h2>${esc(x.name)}</h2><div class="ty">${esc(x.desc)} · <span class="muted">${esc(x.en)}</span></div><div class="trx">${secHTML(s)}</div><div class="row" style="margin-top:14px;gap:8px"><span class="tag">${esc(x.source)}</span><small class="muted">${esc(s.title)}</small></div></div><div class="acts" style="margin-top:14px">${pageBtn(s)}${trBtn()}</div>`; }
+ if(k==='sec') return `<div class="sb"><h2>${esc(x.name)}</h2><div class="ty">${SEC_KIND[x.kind]}${x.cls?' · '+esc(([...CLASSES,...EXTRA_CLASSES].find(c=>c.id===x.cls)||{}).name||''):''} · <span class="muted">${esc(x.title)}</span></div><div class="trx">${secHTML(x)}</div></div><div class="acts" style="margin-top:14px">${pageBtn(x)}${trBtn()}</div>`;
+ if(k==='species'&&(x.full===false||x._sec)){ const s=(WIKI.secBy['species:'+norm(x.en)]||[])[0]; if(s) return `<div class="sb"><h2>${esc(x.name)}</h2><div class="ty">${esc(x.desc)} · <span class="muted">${esc(x.en)}</span></div><div class="trx">${secHTML(s)}</div><div class="row" style="margin-top:14px;gap:8px"><span class="tag">${esc(x.source)}</span><small class="muted">${esc(s.title)}</small></div></div><div class="acts" style="margin-top:14px">${pageBtn(s)}${trBtn()}</div>`; }
  let h=_entryHTMLFor(k,x);
+ if(k==='feat'&&x._imp) return h.replace(manualBtn(x.name),pageBtn(x)+trBtn()).replace('<p style="font-size:1.04rem">','<div class="trx"><p style="font-size:1.04rem;white-space:pre-line">').replace('<div class="row" style="margin-top:14px;gap:8px">','</div><div class="row" style="margin-top:14px;gap:8px">');
  if(x&&x._imp){
   if(k==='monster') h=h.replace(/<button class="btn" id="bedit">[\s\S]*?<\/button>/,'').replace(/<button class="btn danger" id="bdel">[\s\S]*?<\/button>/,'').replace(manualBtn(x.name),pageBtn(x)+trBtn());
   if(k==='spell') h=h.replace(manualBtn(x.name),pageBtn(x)+trBtn()).replace('<p style="font-size:1.04rem">','<div class="trx"><p style="font-size:1.04rem">').replace('<h4>Clases</h4>','</div><h4>Clases</h4>');
@@ -271,7 +297,8 @@ bindEntry=function(b,k,x){
 const _searchIndex=searchIndex;
 searchIndex=function(){ const it=_searchIndex();
  for(const x of allItems()) it.push({g:'Objetos',t:x.name,s:`${x.type} · ${x.rarity}`,tag:x,a:()=>openEntry('item',x.id)});
- for(const s of WIKI.sec) if(s.kind!=='species') it.push({g:s.kind==='class'?'Clases':'Subclases',t:s.name,s:`${s.kind==='class'?'Texto completo':'Subclase'} · ${s.title}`,a:()=>openEntry('sec',s.id)});
+ const spKnown=new Set(allSpecies().map(x=>norm(x.en)));
+ for(const s of WIKI.sec) if(s.kind!=='species'||!spKnown.has(norm(s.en||s.name))) it.push({g:{class:'Clases',subclass:'Subclases',background:'Trasfondos',species:'Especies'}[s.kind],t:s.name,s:`${SEC_KIND[s.kind]} · ${s.title}`,a:()=>openEntry('sec',s.id)});
  return it; };
 ROUTES.objetos={t:'Objetos',s:'Objetos mágicos y equipo',i:'gem',sec:'Wiki'};
 { const o={}; for(const [k,v] of Object.entries(ROUTES)){ if(k==='objetos') continue; o[k]=v; if(k==='dotes') o.objetos=ROUTES.objetos; } for(const k of Object.keys(ROUTES)) delete ROUTES[k]; Object.assign(ROUTES,o); }
@@ -295,8 +322,8 @@ vWiki=function(v){ _vWiki(v);
  const tiles=$('.tiles',v); if(tiles){ const t=document.createElement('div'); t.className='card tile'; t.dataset.go='objetos'; t.style.animation='rise .6s 380ms var(--ease) both'; t.innerHTML=`<span class="ico">${I.gem}</span><div class="h3">Objetos</div><div class="muted" style="font-size:.88rem">Objetos mágicos del SRD y los de tus manuales.</div><b class="n">${allItems().length}</b>`; tiles.insertBefore(t,tiles.children[5]||null); }
  const n=Store.list('manuals').length, w=WIKI;
  const p=document.createElement('div'); p.className='panel wimp'; p.style.setProperty('--i',1);
- p.innerHTML=`<div class="row" style="justify-content:space-between;gap:14px"><div style="min-width:0;flex:1 1 320px"><h3 class="h3">Tu biblioteca dentro de la wiki</h3><p class="muted" style="margin:6px 0 0;font-size:.92rem">${n?`Leo tus ${n} manuales y saco de ellos cada monstruo, hechizo, objeto, clase, subclase y especie con su ficha completa. Todo queda guardado solo en este navegador.`:'Sube tus libros a Manuales (por ejemplo el Manual de Monstruos 2024 o tus expansiones) y sus fichas aparecen aquí con el texto completo.'}</p>
-  <div class="wstat">${[['Monstruos',w.mon.length],['Hechizos',w.spl.length],['Objetos',w.itm.length],['Secciones',w.sec.length]].map(([a,b])=>`<span><b>${b}</b>${a}</span>`).join('')}</div></div>
+ p.innerHTML=`<div class="row" style="justify-content:space-between;gap:14px"><div style="min-width:0;flex:1 1 320px"><h3 class="h3">Tu biblioteca dentro de la wiki</h3><p class="muted" style="margin:6px 0 0;font-size:.92rem">${n?`Leo tus ${n} manuales y saco de ellos cada monstruo, hechizo, objeto, dote, clase, subclase, especie y trasfondo con su ficha completa. Todo queda guardado solo en este navegador.`:'Sube tus libros a Manuales (por ejemplo el Manual de Monstruos 2024 o tus expansiones) y sus fichas aparecen aquí con el texto completo.'}</p>
+  <div class="wstat">${[['Monstruos',w.mon.length],['Hechizos',w.spl.length],['Objetos',w.itm.length],['Dotes',w.feat.length],['Secciones',w.sec.length]].map(([a,b])=>`<span><b>${b}</b>${a}</span>`).join('')}</div></div>
   <div style="display:flex;flex-direction:column;gap:8px;align-items:stretch;min-width:220px">${n?`<button class="btn pri" id="wimp">${I.book} Actualizar desde mis manuales</button>`:`<button class="btn pri" data-go="biblioteca">${I.upload} Subir manuales</button>`}<div id="wpg" hidden><div class="prog"><i id="wpgb"></i></div><small class="muted" id="wpgt"></small></div></div></div>`;
  const first=$('.wrap',v).children[1]; $('.wrap',v).insertBefore(p,first);
  $('#wimp',p)?.addEventListener('click',async e=>{ e.target.disabled=true; await wikiImportAll((q,t)=>{ const g=$('#wpg'); if(!g) return; if(q==null){ g.hidden=true; return; } g.hidden=false; $('#wpgb').style.width=(q*100)+'%'; $('#wpgt').textContent=t; }); render(true); });
@@ -318,4 +345,24 @@ importFiles=async function(files,ui){ const before=new Set(Store.list('manuals')
 const _ocrRun=OCR.run.bind(OCR);
 OCR.run=async function(m){ await _ocrRun(m); const mm=Store.get('manuals',m.id); if(mm&&mm.ocr&&mm.ocr.done>=mm.ocr.total) try{ await wikiImport(mm); }catch(e){} };
 /* Limpia la wiki cuando se borra un manual */
-function wikiPrune(){ if(!WIKI.ready) return; const ids=new Set(Store.list('manuals').map(m=>m.id)); const before=WIKI.count(); for(const k of ['mon','spl','itm','sec']) WIKI[k]=WIKI[k].filter(x=>ids.has(x.man)); if(WIKI.count()!==before) WIKI.save(); }
+function wikiPrune(){ if(!WIKI.ready) return; const ids=new Set(Store.list('manuals').map(m=>m.id)); const before=WIKI.count(); for(const k of ['mon','spl','itm','sec','feat']) WIKI[k]=WIKI[k].filter(x=>ids.has(x.man)); if(WIKI.count()!==before) WIKI.save(); }
+
+/* Especies nuevas detectadas en tus libros */
+allSpecies=function(){ const known=new Set([...SPECIES,...SPECIES_CAT].map(x=>norm(x.en)));
+ const extra=WIKI.sec.filter(s=>s.kind==='species'&&!known.has(norm(s.en||s.name))).map(s=>({id:'sp-'+s.id,name:s.name,en:s.en||s.name,source:s.source,desc:'Del manual '+s.title,_sec:true}));
+ return [...SPECIES,...SPECIES_CAT,...extra]; };
+vEspecies=function(v){
+ wikiList(v,{key:'especies',kind:'species',eyebrow:'Wiki',title:'Especies',items:allSpecies,text:x=>x.desc||'',
+  filters:[{id:'src',label:'Fuente',opts:SRC_OPTS(allSpecies),test:(x,v)=>x.source===v}],
+  sort:(a,b)=>grpSp(a)-grpSp(b)||a.name.localeCompare(b.name),group:x=>['Reglas 2024 (ficha completa)','De tus manuales','Manuales y expansiones'][grpSp(x)],
+  row:x=>({bd:esc(x.name[0]),ds:x.full?`${x.size} · ${x.speed} · ${x.traits.map(t=>t[0]).join(', ')}`:x.desc})});
+};
+const grpSp=x=>x.full===true?0:(x._sec||(WIKI.secBy&&WIKI.secBy['species:'+norm(x.en)]))?1:2;
+/* Clases: lo que salió de tus manuales */
+const _vClases=vClases;
+vClases=function(v){ _vClases(v); if(!CL.sel) return;
+ const l=WIKI.sec.filter(s=>(s.kind==='class'||s.kind==='subclass')&&s.cls===CL.sel); if(!l.length) return;
+ const col=$('.cls2 > div:nth-child(2)',v); if(!col) return;
+ const p=document.createElement('div'); p.className='panel wimp'; p.style.marginBottom='14px';
+ p.innerHTML=`<span class="eyebrow">De tus manuales</span><h3 class="h3" style="margin:4px 0 10px">Texto completo</h3><div style="display:flex;flex-direction:column;gap:6px">${l.map(s=>`<button class="btn" style="justify-content:space-between" data-entry="sec:${esc(s.id)}"><span>${esc(s.kind==='class'?'Capítulo de la clase':s.name)}</span><small class="muted">${esc(s.source)} · pág. ${s.p+1}</small></button>`).join('')}</div>`;
+ col.prepend(p); };

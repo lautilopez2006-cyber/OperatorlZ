@@ -243,7 +243,7 @@ function initSearch(){
    cur=rec.length?rec:idx.filter(i=>i.g==='Secciones'); }
   else { const sc=i=>{ const n=norm(i.t); return n.startsWith(s)?0:n.includes(s)?1:norm(i.s||'').includes(s)?2:9; };
    cur=idx.map(i=>[sc(i),i]).filter(a=>a[0]<9).sort((a,b)=>a[0]-b[0]||a[1].t.length-b[1].t.length).slice(0,60).map(a=>a[1]);
-   const order=['Secciones','Monstruos','Hechizos','Especies','Clases','Subclases','Dotes','Reglas','Campaña']; cur.sort((a,b)=>order.indexOf(a.g)-order.indexOf(b.g)); }
+   const order=['Secciones','Monstruos','Hechizos','Objetos','Especies','Clases','Subclases','Trasfondos','Dotes','Reglas','Campaña']; cur.sort((a,b)=>order.indexOf(a.g)-order.indexOf(b.g)); }
   const dx=q.value.trim(); if(/^\d*d\d/i.test(dx)&&roll(dx)) cur.unshift({g:'Dados',t:'Tirar '+dx,s:'Enter para tirar',a:()=>rollToast(dx,'Tirada')});
   if(s.length>1) cur.push({g:'Manuales',t:`Buscar «${q.value.trim()}» en mis manuales`,s:'Texto completo de tus PDF',a:()=>{ LB.q=q.value.trim(); LB.open=null; go('biblioteca'); }});
   sel=clamp(sel,0,cur.length-1); let last='';
