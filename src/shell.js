@@ -230,7 +230,7 @@ function searchIndex(){
  for(const [sec,list] of RULES) for(const [n] of list) it.push({g:'Reglas',t:n,s:sec,a:()=>go('reglas')});
  for(const c of Store.list('characters')) it.push({g:'Campaña',t:c.name||'Sin nombre',s:'Personaje',a:()=>editPC(c)});
  for(const n of Store.list('npcs')) it.push({g:'Campaña',t:n.name||'Sin nombre',s:'PNJ · '+(n.role||''),a:()=>editNPC(n)});
- for(const m of Store.list('maps')) it.push({g:'Campaña',t:m.name,s:'Mapa '+LEVELS[m.level].name.toLowerCase()+' · '+planeById(m.plane||'material').name,a:()=>{ if((m.plane||'material')!==curPlane) applyPlane(m.plane||'material',true); MS.open=m.id; go('mapas'); }});
+ for(const m of Store.list('maps')) it.push({g:'Campaña',t:m.name,s:'Mapa '+((typeof SLV!=='undefined'&&SLV[m.level])?SLV[m.level].n:(LEVELS[m.level]||{name:m.level}).name).toLowerCase()+' · '+planeById(m.plane||'material').name,a:()=>{ if((m.plane||'material')!==curPlane) applyPlane(m.plane||'material',true); if(m.v){ SD.openId=m.id; lsSet('oz:stOpen',m.id); MS.classic=false; } else { MS.classic=true; MS.open=m.id; } go('mapas'); }});
  for(const m of Store.list('manuals')) it.push({g:'Campaña',t:m.title,s:'Manual',a:()=>{ LB.open=m.id; LB.page=0; go('biblioteca'); }});
  return it;
 }

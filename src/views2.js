@@ -72,7 +72,7 @@ function editNPC(n){
  const md=modal({title:isNew?'Nuevo PNJ':n.name,wide:true,body:`
   <div class="grid3">${fld('Nombre','name',n.name)}${fld('Especie','species',n.species)}${fld('Rol u ocupación','role',n.role)}</div>
   <div class="grid3">${sel('Actitud','att',n.att,[['aliado','Aliado'],['neutral','Neutral'],['hostil','Hostil']])}${fld('Lugar','location',n.location,'text','list="nlocs"')}${fld('Facción','faction',n.faction)}</div>
-  <datalist id="nlocs">${[...new Set([...Store.list('npcs').map(x=>x.location),...Store.list('maps').flatMap(m=>(m.markers||[]).map(k=>k.name))].filter(Boolean))].map(l=>`<option value="${esc(l)}">`).join('')}</datalist>
+  <datalist id="nlocs">${[...new Set([...Store.list('npcs').map(x=>x.location),...Store.list('maps').flatMap(m=>[...(m.markers||[]),...(m.pins||[])].map(k=>k.name))].filter(Boolean))].map(l=>`<option value="${esc(l)}">`).join('')}</datalist>
   <div class="grid2">${area('Apariencia','appearance',n.appearance,2)}${area('Personalidad','personality',n.personality,2)}${area('Manía o voz','quirk',n.quirk,2)}${area('Motivación','motive',n.motive,2)}</div>
   ${area('Secreto (solo para el DM)','secret',n.secret,2)}${area('Notas','notes',n.notes,3)}
   <div class="grid2">${sel('Estadísticas en combate','template',n.template,[['','Sin estadísticas'],...mons.map(m=>[m.id,`${m.name} (VD ${m.cr})`])])}<label class="f"><span>Favorito</span><label class="chip" style="cursor:pointer;width:max-content"><input type="checkbox" name="fav" ${n.fav?'checked':''}> Fijar arriba</label></label></div>`,

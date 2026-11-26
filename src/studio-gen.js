@@ -22,8 +22,8 @@ const mkLabel=(m,x,y,text,o={})=>m.labels.push(Object.assign({id:uid(),x,y,text,
 const mkStamp=(m,k,x,y,s,R,o={})=>m.stamps.push(Object.assign({id:uid(),k,x:Math.round(x),y:Math.round(y),s:Math.round(s),v:(R()*8)|0,r:0},R()<.5&&STAMPS[k].side?{f:1}:{},o));
 
 async function stGenerate(m,fresh){ toast('Generando el mapa…'); await new Promise(r=>setTimeout(r,40)); const seed=(Math.random()*1e9)|0, R=srng(seed);
- SD.tg.clearRect(0,0,m.w,m.h); m.stamps=[]; m.paths=[]; m.labels=[]; if(fresh) m.pins=[];
- try{ if(m.level==='mazmorra') genDungeon2(m,R); else if(m.level==='minimo') genClearing(m,R); else genWorld(m,R,m.level==='nacional'); }catch(e){ console.error(e); toast('No se pudo generar el terreno.','bad'); }
+ SD.tg.clearRect(0,0,m.w,m.h); m.stamps=[]; m.paths=[]; m.labels=[]; m.shapes=[]; if(fresh) m.pins=[];
+ try{ if(m.level==='mazmorra') genDungeon2(m,R); else if(m.level==='minimo') genClearing(m,R); else if(m.level==='ciudad') genCity(m,R); else genWorld(m,R,m.level==='nacional'); }catch(e){ console.error(e); toast('No se pudo generar el terreno.','bad'); }
  SD.undo=fresh?[]:SD.undo; if(fresh) SD.upx=0; draw(); }
 
 function genWorld(m,R,regional){ const cell=4, gw=Math.ceil(m.w/cell), gh=Math.ceil(m.h/cell), N=gw*gh, E=new Float32Array(N), Mo=new Float32Array(N), Te=new Float32Array(N);
@@ -118,3 +118,24 @@ function genDungeon2(m,R){ const G=m.grid.size, W=Math.floor(m.w/G), H=Math.floo
   if(r.tex==='madera'&&R()<.7) S('alfombra_t',X+r.w/2,Y+r.h/2,Math.min(r.w,r.h)/3); });
  if(R()<.5){ const r=rooms[(R()*rooms.length)|0]; blob(m,'somera',(r.cx+.5)*G,(r.cy+.5)*G,G*Math.min(r.w,r.h)*.35,1); }
  m.fx.dark=Math.max(m.fx.dark||0,.45); }
+
+function genCity(m,R){ const G=m.grid.size, gw=Math.ceil(m.w/8), gh=Math.ceil(m.h/8), n=svnoise(R()*1e9|0), N=gw*gh, D=k=>defSizeOf(m,k);
+ fillTerrain(m,'cesped'); const dirt=new Float32Array(N); for(let y=0;y<gh;y++) for(let x=0;x<gw;x++) dirt[y*gw+x]=smoothst(.58,.7,fbm2(n,x/gw*4,y/gw*4,4)); paintMask(m,'tierra',dirt,gw,gh,.7);
+ const cx=m.w*(.42+R()*.16), cy=m.h*(.42+R()*.16), roads=[];
+ const road=(pts,t='calzada',w)=>{ const p=pts.map(q=>[Math.round(q[0]),Math.round(q[1])]); m.paths.push({id:uid(),t,w:w||pathWidth(m,t)*(t==='calzada'?1.2:1),pts:p}); roads.push({pts:samplePath(p,8),w:w||pathWidth(m,t)}); };
+ const wav=(a,b,k)=>{ const out=[]; for(let i=0;i<=k;i++){ const t=i/k; out.push([a[0]+(b[0]-a[0])*t+(i&&i<k?(R()-.5)*G*1.6:0),a[1]+(b[1]-a[1])*t+(i&&i<k?(R()-.5)*G*1.6:0)]); } return out; };
+ road(wav([-20,cy+(R()-.5)*G*4],[cx,cy],5).concat(wav([cx,cy],[m.w+20,cy+(R()-.5)*G*4],5).slice(1)));
+ road(wav([cx+(R()-.5)*G*4,-20],[cx,cy],4).concat(wav([cx,cy],[cx+(R()-.5)*G*4,m.h+20],4).slice(1)));
+ for(let i=0;i<4;i++){ const a=R()*Math.PI*2, L=Math.min(m.w,m.h)*(.22+R()*.18), s0=[cx+Math.cos(a)*G*6,cy+Math.sin(a)*G*6]; road(wav(s0,[s0[0]+Math.cos(a+(R()-.5)*.6)*L,s0[1]+Math.sin(a+(R()-.5)*.6)*L],3),'tierra'); }
+ const plaza=G*(3+R()*1.5); blob(m,'adoquin',cx,cy,plaza,1); blob(m,'adoquin',cx+plaza*.3,cy-plaza*.2,plaza*.8,1);
+ mkStamp(m,'fuente_t',cx,cy,D('fuente_t'),R); for(let i=0;i<5;i++){ const a=i/5*Math.PI*2+R(); mkStamp(m,'puesto_t',cx+Math.cos(a)*plaza*.72,cy+Math.sin(a)*plaza*.72,D('puesto_t'),R,{r:a+Math.PI/2}); }
+ const houses=[], free=(x,y,r)=>x>r&&y>r&&x<m.w-r&&y<m.h-r&&Math.hypot(x-cx,y-cy)>plaza+r&&!houses.some(h=>Math.hypot(h[0]-x,h[1]-y)<(h[2]+r)*.92)&&!roads.some(rd=>rd.pts.some((q,i)=>i&&distSeg(x,y,rd.pts[i-1],q)<rd.w/2+r*.62));
+ const town=Math.min(m.w,m.h)*.42;
+ for(const rd of roads){ const P=rd.pts; let acc=0; for(let i=1;i<P.length;i++){ const a=P[i-1], b=P[i], L=Math.hypot(b[0]-a[0],b[1]-a[1])||1; acc+=L; if(acc<G*1.9) continue; acc=0; const dx=(b[0]-a[0])/L, dy=(b[1]-a[1])/L, ang=Math.atan2(dy,dx);
+  for(const sd of [-1,1]){ const sc=.75+R()*.5, s=D('tejado_t')*sc, r=s*.42, off=rd.w/2+r*.62+G*.15, x=b[0]-dy*off*sd, y=b[1]+dx*off*sd; if(Math.hypot(x-cx,y-cy)>town*(1+R()*.25)) continue; if(!free(x,y,r)) continue;
+   houses.push([x,y,r]); mkStamp(m,R()<.12?'tejado_redondo_t':'tejado_t',x,y,R()<.12?D('tejado_redondo_t')*sc*.8:s,R,{r:ang+(R()<.5?0:Math.PI)}); } } }
+ for(let t=0;t<260;t++){ const a=R()*Math.PI*2, d=Math.sqrt(R())*town*.9, x=cx+Math.cos(a)*d, y=cy+Math.sin(a)*d, sc=.7+R()*.45, s=D('tejado_t')*sc, r=s*.42; if(!free(x,y,r)) continue; houses.push([x,y,r]); mkStamp(m,'tejado_t',x,y,s,R,{r:R()*Math.PI*2}); }
+ const ring=[]; const WR=town*1.12; for(let i=0;i<10;i++){ const a=i/10*Math.PI*2; ring.push([clamp(cx+Math.cos(a)*WR*(1+(R()-.5)*.12),G,m.w-G),clamp(cy+Math.sin(a)*WR*(.85+(R()-.5)*.12),G,m.h-G)]); }
+ m.paths.push({id:uid(),t:'muro',w:pathWidth(m,'muro')*1.6,pts:[...ring,ring[0]].map(p=>[Math.round(p[0]),Math.round(p[1])])}); ring.forEach((p,i)=>{ if(i%2===0) mkStamp(m,'tejado_redondo_t',p[0],p[1],D('tejado_redondo_t')*.7,R); });
+ for(let t=0;t<700;t++){ const x=R()*m.w, y=R()*m.h, d=Math.hypot(x-cx,(y-cy)/.85); if(d<WR*1.05) { if(R()>.04) continue; } const k=R()<.25?'pino_t':'arbol_t', s=D(k)*(.8+R()*.5); if(!free(x,y,s*.35)) continue; houses.push([x,y,s*.35]); mkStamp(m,k,x,y,s,R,{r:R()*6.3}); }
+ mkLabel(m,cx,cy-plaza-G*1.2,fname(R),{size:Math.round(G*1.1),sp:10,font:'Cinzel Decorative',color:'#2a2018',halo:1}); m.fx.dark=0; }
